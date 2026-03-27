@@ -28,7 +28,7 @@ The application will include:
 3. The system will allow updating the stored data when new API calls are made.
 
 ### Data Analysis and Visualization (Author #2: Jane Tiche)
-1.Transfer the data file from github into Python
+1. Transfer the data file from github into Python
 2. Data cleanup with NumPy and Pandas
 3. Calculate sea level rise trends, averages/trends
 4. Use Matplotlib to create graphs for visualization
