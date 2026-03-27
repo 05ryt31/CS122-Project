@@ -1,35 +1,59 @@
 # CS122-Project
 
-## Project Title: 
+## Project Title:
 NASA Climate Data Dashboard
 
-## Authors: 
+## Authors:
 Ryuto Kawabata\
 Jane Tiche
 
 ## Project Description:
-This project is a Python-based application designed to collect, analyze, and visualize climate-related data from public APIs. The system allows users to explore long-term trends in global sea levels and understand climate change impacts. Data will be retrieved from online sources such as NASA and other public APIs (if needed). The application processes and analyzes the data to identify patterns and trends. The results will be displayed through interactive visualizations, providing users with a clear understanding of climate data.
+This project is a Python-based application designed to collect, analyze, and visualize climate-related data from public APIs. The system allows users to explore long-term trends in global sea levels and understand climate change impacts. Data will be retrieved from online sources such as NASA and other public APIs if needed. The application processes and analyzes the data to identify patterns and trends. The results will be displayed through interactive visualizations, providing users with a clear understanding of climate data.
 
+---
 
-## Project Outline/Plan:
+## Project Outline / Plan:
+1. Retrieve sea level and climate data from public APIs (e.g., NASA API)
+2. Store the data locally in structured formats (CSV/JSON)
+3. Clean and preprocess the data using Python
+4. Analyze trends such as average sea level rise over time
+5. Visualize the data using graphs
+6. Build an interactive interface for user interaction
 
-### Interface
+---
+
+## Interface Plan:
 The interface will be built using Python (Tkinter).
+
 The application will include:
 - A main window for selecting data sources and preferred statistics
-- A secondary window for displaying graph and statistics
+- A secondary window for displaying graphs and statistics
 - Buttons to fetch and update data
 - Input fields for filtering data (e.g., date range)
-- Potential entry box for user to input location
+- Optional input box for user to enter location
 
-### Data Collection and Storage Plan (Author #1: Ryuto Kawabata)
+---
+
+## Data Collection and Storage Plan (Author #1: Ryuto Kawabata)
 1. The program will use public APIs (such as NASA API) to retrieve data.
-2. Data will be stored locally in files such as CSV or JSON format.
-3. The system will allow updating the stored data when new API calls are made.
+2. Retrieved data will be stored locally in structured formats such as CSV or JSON files.
+3. The system will allow updating stored data when new API calls are made.
+4. Basic error handling will be implemented for failed API requests.
 
-### Data Analysis and Visualization (Author #2: Jane Tiche)
-1. Transfer the data file from github into Python
-2. Data cleanup with NumPy and Pandas
-3. Calculate sea level rise trends, averages/trends
-4. Use Matplotlib to create graphs for visualization
-5. Make sure the graph updates to user input 
+---
+
+## Data Analysis and Visualization Plan (Author #2: Jane Tiche)
+1. The collected data will be loaded from local storage into Python for analysis.
+2. The data will be cleaned and structured using libraries such as NumPy and Pandas, including handling missing values and formatting data types.
+3. The program will analyze the data by calculating trends such as average sea level rise over time and identifying patterns or changes.
+4. The results will be visualized using Matplotlib, with line plots showing how sea level changes over time.
+5. The visualizations will update dynamically when new data is loaded or when user input changes.
+
+---
+
+## Technologies Used:
+- Python
+- Requests (API communication)
+- Pandas & NumPy (data processing)
+- Matplotlib (visualization)
+- Tkinter (user interface)
