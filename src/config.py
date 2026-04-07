@@ -45,3 +45,27 @@ COMMUNITY = "RE"
 
 # Request timeout in seconds
 REQUEST_TIMEOUT = 30
+
+# ---------------------------------------------------------------------------
+# NOAA CO-OPS Tides & Currents API configuration
+#
+# Provides monthly mean sea level measured by coastal tide gauge stations.
+# This is station-level data (not satellite-derived global mean sea level).
+# For global trends, data from multiple stations can be combined, or this
+# source can be replaced with a satellite altimetry dataset later.
+#
+# Documentation: https://api.tidesandcurrents.noaa.gov/api/prod/
+# No API key is required.
+# ---------------------------------------------------------------------------
+SEA_LEVEL_BASE_URL = (
+    "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
+)
+
+# Default station: The Battery, New York (one of the longest-running tide
+# gauges in the US, with records since the 1850s).
+DEFAULT_STATION_ID = "8518750"
+DEFAULT_STATION_NAME = "The Battery, NY"
+
+# Date range for sea level data
+SEA_LEVEL_START_DATE = "20000101"
+SEA_LEVEL_END_DATE = "20241231"
