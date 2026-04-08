@@ -61,8 +61,21 @@ SEA_LEVEL_BASE_URL = (
     "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
 )
 
-# Default station: The Battery, New York (one of the longest-running tide
-# gauges in the US, with records since the 1850s).
+# Available tide gauge stations.  The Tkinter frontend will use this
+# dictionary to populate a station selector.  Each key is a display-
+# friendly label; the value holds the NOAA station ID and coordinates.
+STATIONS = {
+    "The Battery, NY": {"id": "8518750", "lat": 40.7006, "lon": -74.0142},
+    "San Francisco, CA": {"id": "9414290", "lat": 37.8063, "lon": -122.4659},
+    "Los Angeles, CA": {"id": "9410660", "lat": 33.7200, "lon": -118.2720},
+    "Seattle, WA": {"id": "9447130", "lat": 47.6026, "lon": -122.3393},
+    "Honolulu, HI": {"id": "1612340", "lat": 21.3067, "lon": -157.8670},
+    "Key West, FL": {"id": "8724580", "lat": 24.5508, "lon": -81.8081},
+    "Boston, MA": {"id": "8443970", "lat": 42.3539, "lon": -71.0503},
+    "Miami Beach, FL": {"id": "8723170", "lat": 25.7682, "lon": -80.1320},
+}
+
+# Default station used when no station is selected
 DEFAULT_STATION_ID = "8518750"
 DEFAULT_STATION_NAME = "The Battery, NY"
 
