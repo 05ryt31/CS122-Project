@@ -23,7 +23,7 @@ import requests
 
 from src.api_client import fetch_climate_data
 from src.data_normalizer import normalize_sea_level
-from src.sea_level_client import fetch_sea_level_data
+from src.sea_level_client import fetch_sea_level_data, get_available_stations
 from src.storage import build_dataframe, save_csv, save_raw_json
 
 
@@ -61,15 +61,35 @@ def collect_climate_data() -> None:
     print(df.head().to_string(index=False))
 
 
-def collect_sea_level_data() -> None:
-    """Fetch and store NOAA CO-OPS sea level data."""
+def collect_sea_level_data(station_name: str | None = None) -> None:
+    """Fetch and store NOAA CO-OPS sea level data for a given station.
+
+    Parameters
+    ----------
+    station_name : str or None
+        A key from ``STATIONS`` in config.py (e.g. "San Francisco, CA").
+        When None, the default station is used.
+    """
+    stations = get_available_stations()
+
+    # Look up station ID from the name; fall back to default
+    if station_name and station_name in stations:
+        station_id = stations[station_name]["id"]
+    else:
+        station_name = None
+        station_id = None  # fetch_sea_level_data will use its default
+
     print("=" * 50)
     print("[2/2] NOAA CO-OPS – Sea Level Data")
     print("=" * 50)
-    print("Fetching sea level data from NOAA CO-OPS API...")
+    display = station_name or "default"
+    print(f"Fetching sea level data for station: {display}")
 
     try:
-        raw_data = fetch_sea_level_data()
+        kwargs: dict = {}
+        if station_id:
+            kwargs["station_id"] = station_id
+        raw_data = fetch_sea_level_data(**kwargs)
     except requests.ConnectionError:
         print("Error: Could not connect to the NOAA CO-OPS API.")
         print("Check your internet connection and try again.")
@@ -94,8 +114,7 @@ def collect_sea_level_data() -> None:
     print(f"\nRows:    {len(df)}")
     print(f"Columns: {list(df.columns)}")
     print(f"Date range: {df['date'].iloc[0]} – {df['date'].iloc[-1]}")
-    station = df["station_name"].iloc[0]
-    print(f"Station: {station}")
+    print(f"Station: {df['station_name'].iloc[0]}")
     print("\nFirst 5 rows:")
     print(df.head().to_string(index=False))
 
@@ -104,7 +123,11 @@ def main() -> None:
     """Run the full data collection pipeline for all sources."""
     collect_climate_data()
     print()
-    collect_sea_level_data()
+
+    # Pass a station name to fetch data for that location.
+    # The Tkinter frontend will call collect_sea_level_data() with the
+    # user's selection from get_available_stations().
+    collect_sea_level_data(station_name="San Francisco, CA")
     print()
     print("Done. All data saved to data/raw/ and data/processed/.")
 

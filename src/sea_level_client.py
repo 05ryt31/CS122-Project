@@ -28,7 +28,23 @@ from src.config import (
     SEA_LEVEL_BASE_URL,
     SEA_LEVEL_END_DATE,
     SEA_LEVEL_START_DATE,
+    STATIONS,
 )
+
+
+def get_available_stations() -> dict[str, dict]:
+    """Return the dictionary of available tide gauge stations.
+
+    The Tkinter frontend can call this to populate a station selector.
+    Each key is a human-readable station name; the value contains
+    ``id``, ``lat``, and ``lon``.
+
+    Returns
+    -------
+    dict[str, dict]
+        e.g. ``{"The Battery, NY": {"id": "8518750", "lat": 40.70, "lon": -74.01}, ...}``
+    """
+    return STATIONS
 
 
 def fetch_sea_level_data(
