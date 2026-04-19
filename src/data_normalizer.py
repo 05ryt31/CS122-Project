@@ -46,7 +46,7 @@ def normalize_sea_level(raw_data: dict) -> pd.DataFrame:
         year = int(entry["year"])
         month = int(entry["month"])
         records.append({
-            "date": f"{year:04d}-{month:02d}",
+            "date": pd.Timestamp(year=year, month=month, day=1),
             "year": year,
             "month": month,
             "sea_level_m": _safe_float(entry["MSL"]),
@@ -56,6 +56,6 @@ def normalize_sea_level(raw_data: dict) -> pd.DataFrame:
             "station_name": station_name,
         })
 
-    df = pd.DataFrame(records)
-    df = df.sort_values(["year", "month"]).reset_index(drop=True)
+    df = pd.DataFrame(records).dropna(subset=['sea_level_m']).sort_values('date').reset_index(drop=True)
+
     return df
