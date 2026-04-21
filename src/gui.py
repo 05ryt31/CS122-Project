@@ -27,6 +27,7 @@ from matplotlib.figure import Figure
 
 from src.data_adapter import load_sea_level_data
 from src.sea_level_client import get_available_stations
+from src.data_analysis import apply_mode, add_trendline, get_summary_stats
 
 # Sea level metrics available for plotting / summary
 METRICS = {
@@ -109,7 +110,20 @@ class PlotWindow:
                 plot_df[metric],
                 linewidth=1.2,
                 color="#1f77b4",
+                label=metric_label,
             )
+
+            if "trendline" in plot_df.columns and plot_df["trendline"].notna().any():
+                self.ax.plot(
+                    plot_df["date"],
+                    plot_df["trendline"],
+                    linewidth=1.5,
+                    linestyle="--",
+                    color="#d62728",
+                    label="Trendline",
+                )
+                self.ax.legend()
+              
             # Show only a subset of x-tick labels to avoid overlap
             tick_step = max(1, len(plot_df) // 10)
             self.ax.set_xticks(plot_df["date"].values[::tick_step])
@@ -240,6 +254,32 @@ class SeaLevelDashboardGUI:
         )
         self.end_year_entry.grid(row=3, column=1, sticky="w", pady=4)
 
+        # Data mode and trendline
+
+        ttk.Label(controls, text="Data:").grid(
+            row=4, column=0, sticky="w", pady=4,
+        )
+
+        self.mode_var = tk.StringVar(value="monthly")
+        self.trend_var = tk.BooleanVar(value=False)
+
+        self.mode_combo = ttk.Combobox(
+            controls,
+            textvariable=self.mode_var,
+            values=["monthly", "yearly", "decade"],
+            state="readonly",
+            width=16,
+        )
+        
+        self.mode_combo.grid(row=4, column=1, sticky="w", pady=4)
+
+        self.trend_check  =ttk.Checkbutton(
+            controls,
+            text='show trendline',
+            variable=self.trend_var
+        )
+        self.trend_check.grid(row=4, column=3,  sticky="w", pady=4)
+
         # --- Buttons ---------------------------------------------------------
         btn_frame = ttk.Frame(self.root)
         btn_frame.pack(fill="x", **pad)
@@ -327,6 +367,10 @@ class SeaLevelDashboardGUI:
             )
             return
 
+        metric = self._selected_metric_key()
+        mode = self.mode_var.get()
+        show_trendline = self.trend_var.get()
+        
         self._set_status(f"Loading data for {station_name}...")
         self.root.update_idletasks()
 
@@ -336,6 +380,12 @@ class SeaLevelDashboardGUI:
                 start_year=start_year,
                 end_year=end_year,
             )
+
+            df = apply_mode(df, metric, mode)
+
+            if show_trendline:
+                df = add_trendline(df, metric)
+              
         except Exception as exc:
             self._set_status(f"Error: {exc}", error=True)
             self.current_df = None
@@ -377,24 +427,25 @@ class SeaLevelDashboardGUI:
         """Build and show a textual summary of the loaded data."""
         metric = self._selected_metric_key()
         metric_label = METRICS.get(metric, metric)
-        col = df[metric].dropna()
+        stats = get_summary_stats(df, metric)
 
         lines = [
             f"Station:      {station_name}",
             f"Metric:       {metric_label}",
+            f"Mode:         {self.mode_var.get()}",
             f"Date range:   {df['date'].iloc[0]} to {df['date'].iloc[-1]}",
-            f"Rows loaded:  {len(df)}",
+            f"Rows loaded:  {stats['rows_loaded']}",
             "",
         ]
 
-        if col.empty:
+        if stats["average"] is None:
             lines.append("No valid values for this metric.")
         else:
             lines.extend([
-                f"Average:      {col.mean():.4f} m",
-                f"Min:          {col.min():.4f} m",
-                f"Max:          {col.max():.4f} m",
-                f"Std Dev:      {col.std():.4f} m",
+                f"Average:      {stats['average']:.4f} m",
+                f"Min:          {stats['min']:.4f} m",
+                f"Max:          {stats['max']:.4f} m",
+                f"Std Dev:      {stats['std_dev']:.4f} m",
             ])
 
         self._set_summary("\n".join(lines))
