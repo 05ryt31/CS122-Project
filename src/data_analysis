@@ -1,0 +1,79 @@
+import numpy as np
+import pandas as pd
+
+
+def apply_mode(df, metric, mode):
+    '''convert data to month, year, or decade format based on user input '''
+    if mode == "monthly":
+        return df
+
+    if mode == "yearly":
+        df = df.groupby("year", as_index=False).agg({
+            metric: "mean",
+            "station_id": "first",
+            "station_name": "first",
+        })
+        df["date"] = pd.to_datetime(df["year"].astype(str) + "-01-01")
+        return df
+
+    if mode == "decade":
+        df = df.copy()
+        df["decade"] = (df["year"] // 10) * 10
+        df = df.groupby("decade", as_index=False).agg({
+            metric: "mean",
+            "station_id": "first",
+            "station_name": "first",
+        })
+        df["year"] = df["decade"]
+        df["date"] = pd.to_datetime(df["decade"].astype(str) + "-01-01")
+        return df
+
+    return df
+
+
+def add_trendline(df, metric):
+    '''creates a clean dataset to compute a trendline '''
+    df = df.copy()
+    df["trendline"] = np.nan
+
+    clean = df.dropna(subset=[metric])
+    if len(clean) < 2:
+        return df
+
+    x = np.arange(len(clean))
+    y = clean[metric].values
+    slope, intercept = np.polyfit(x, y, 1)
+
+    df.loc[clean.index, "trendline"] = slope * x + intercept
+    return df
+
+def get_summary_stats(df, metric):
+    ''' Using user input dates and metric to calculate basic stats.
+
+        Returns: rows loaded, average, date start and end, average, min, max, standard deviation.
+    '''
+    values = df[metric].dropna()
+
+    stats = {
+        "rows_loaded": len(df),
+        "valid_points": len(values),
+        "missing_points": len(df) - len(values),
+        "date_start": None,
+        "date_end": None,
+        "average": None,
+        "min": None,
+        "max": None,
+        "std_dev": None,
+    }
+
+    if not df.empty:
+        stats["date_start"] = df["date"].iloc[0]
+        stats["date_end"] = df["date"].iloc[-1]
+
+    if not values.empty:
+        stats["average"] = values.mean()
+        stats["min"] = values.min()
+        stats["max"] = values.max()
+        stats["std_dev"] = values.std()
+
+    return stats
