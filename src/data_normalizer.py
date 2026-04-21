@@ -56,6 +56,6 @@ def normalize_sea_level(raw_data: dict) -> pd.DataFrame:
             "station_name": station_name,
         })
 
-    df = pd.DataFrame(records).dropna(subset=['sea_level_m']).sort_values('date').reset_index(drop=True)
+    df = pd.DataFrame(records).sort_values('date').reset_index(drop=True)
 
     return df
