@@ -36,15 +36,15 @@ def add_trendline(df, metric):
     df = df.copy()
     df["trendline"] = np.nan
 
-    clean = df.dropna(subset=[metric])
-    if len(clean) < 2:
+    clean_df = df.dropna(subset=[metric])
+    if len(clean_df) < 2:
         return df
 
     x = np.arange(len(clean))
-    y = clean[metric].values
+    y = clean_df[metric].values
     slope, intercept = np.polyfit(x, y, 1)
 
-    df.loc[clean.index, "trendline"] = slope * x + intercept
+    df.loc[clean_df.index, "trendline"] = slope * x + intercept
     return df
 
 def get_summary_stats(df, metric):
