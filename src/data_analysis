@@ -40,7 +40,7 @@ def add_trendline(df, metric):
     if len(clean_df) < 2:
         return df
 
-    x = np.arange(len(clean))
+    x = np.arange(len(clean_df))
     y = clean_df[metric].values
     slope, intercept = np.polyfit(x, y, 1)
 
