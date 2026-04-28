@@ -30,7 +30,7 @@ The application will include:
 - A secondary window for displaying graphs and statistics
 - Buttons to fetch and update data
 - Input fields for filtering data (e.g., date range)
-- Optional input box for user to enter location
+- Dropdown menu for user to select a station/location from a preset list
 
 ---
 
