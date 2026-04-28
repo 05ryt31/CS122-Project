@@ -26,8 +26,8 @@ This project is a Python-based application designed to collect, analyze, and vis
 The interface will be built using Python (Tkinter).
 
 The application will include:
-- A main window for selecting data sources and preferred statistics
-- A secondary window for displaying graphs and statistics
+- A main window with two tabs (Sea Level and Climate), each with its own metric and station controls
+- A shared secondary window for displaying graphs and statistics
 - Buttons to fetch and update data
 - Input fields for filtering data (e.g., date range)
 - Dropdown menu for user to select a station/location from a preset list
