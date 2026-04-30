@@ -2,28 +2,28 @@ import numpy as np
 import pandas as pd
 
 
-def apply_mode(df, metric, mode):
+_DEFAULT_PASSTHROUGH = ("station_id", "station_name")
+
+
+def apply_mode(df, metric, mode, passthrough_cols=_DEFAULT_PASSTHROUGH):
     '''convert data to month, year, or decade format based on user input '''
     if mode == "monthly":
         return df
 
+    agg_spec = {metric: "mean"}
+    for col in passthrough_cols:
+        if col in df.columns:
+            agg_spec[col] = "first"
+
     if mode == "yearly":
-        df = df.groupby("year", as_index=False).agg({
-            metric: "mean",
-            "station_id": "first",
-            "station_name": "first",
-        })
+        df = df.groupby("year", as_index=False).agg(agg_spec)
         df["date"] = pd.to_datetime(df["year"].astype(str) + "-01-01")
         return df
 
     if mode == "decade":
         df = df.copy()
         df["decade"] = (df["year"] // 10) * 10
-        df = df.groupby("decade", as_index=False).agg({
-            metric: "mean",
-            "station_id": "first",
-            "station_name": "first",
-        })
+        df = df.groupby("decade", as_index=False).agg(agg_spec)
         df["year"] = df["decade"]
         df["date"] = pd.to_datetime(df["decade"].astype(str) + "-01-01")
         return df
