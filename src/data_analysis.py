@@ -8,7 +8,7 @@ _DEFAULT_PASSTHROUGH = ("station_id", "station_name")
 def apply_mode(df, metric, mode, passthrough_cols=_DEFAULT_PASSTHROUGH):
     '''convert data to month, year, or decade format based on user input '''
     if mode == "monthly":
-        return df
+        return df.copy()
 
     agg_spec = {metric: "mean"}
     for col in passthrough_cols:
@@ -18,7 +18,7 @@ def apply_mode(df, metric, mode, passthrough_cols=_DEFAULT_PASSTHROUGH):
     if mode == "yearly":
         df = df.groupby("year", as_index=False).agg(agg_spec)
         df["date"] = pd.to_datetime(df["year"].astype(str) + "-01-01")
-        return df
+        return df.sort_values("date").reset_index(drop=True)
 
     if mode == "decade":
         df = df.copy()
@@ -26,9 +26,9 @@ def apply_mode(df, metric, mode, passthrough_cols=_DEFAULT_PASSTHROUGH):
         df = df.groupby("decade", as_index=False).agg(agg_spec)
         df["year"] = df["decade"]
         df["date"] = pd.to_datetime(df["decade"].astype(str) + "-01-01")
-        return df
+        return df.sort_values("date").reset_index(drop=True)
 
-    return df
+    return df.copy()
 
 
 def add_trendline(df, metric):
@@ -36,17 +36,45 @@ def add_trendline(df, metric):
     df = df.copy()
     df["trendline"] = np.nan
 
-    clean_df = df.dropna(subset=[metric])
+    clean_df = df.dropna(subset=[metric]).copy()
     if len(clean_df) < 2:
         return df
+        
+    clean_df["date"] = pd.to_datetime(clean_df["date"])
+    clean_df["years"] = (
+        (clean_df["date"] - clean_df["date"].iloc[0]).dt.days / 365.25
+    )
+    
+    x = clean_df["years"]
+    y = clean_df[metric]
+    
+    coeffs = np.polyfit(x, y, 1)
+    best_fit = np.poly1d(coeffs)
 
-    x = np.arange(len(clean_df))
-    y = clean_df[metric].values
-    slope, intercept = np.polyfit(x, y, 1)
+    clean_df["trendline"] = best_fit(x)
 
     df.loc[clean_df.index, "trendline"] = slope * x + intercept
     return df
 
+def get_trend_per_year(df, metric):
+    clean_df = df.dropna(subset=[metric]).copy()
+    if len(clean_df) < 2:
+        return None
+
+    
+    clean_df["date"] = pd.to_datetime(clean_df["date"])
+
+    clean_df["years"] = (
+        (clean_df["date"] - clean_df["date"].iloc[0]).dt.days / 365.25
+    )
+
+    x = clean_df["years"]
+    y = clean_df[metric]
+
+    coeffs = np.polyfit(x, y, 1)
+    slope = coeffs[0]  
+    return slope    #in unit/yr    
+    
 def get_summary_stats(df, metric):
     ''' Using user input dates and metric to calculate basic stats.
 
