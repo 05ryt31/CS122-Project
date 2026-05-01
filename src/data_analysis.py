@@ -53,7 +53,7 @@ def add_trendline(df, metric):
 
     clean_df["trendline"] = best_fit(x)
 
-    df.loc[clean_df.index, "trendline"] = slope * x + intercept
+    df.loc[clean_df.index, "trendline"] = clean_df["trendline"]
     return df
 
 def get_trend_per_year(df, metric):
