@@ -17,20 +17,33 @@ from matplotlib.figure import Figure
 
 from src.climate_adapter import load_climate_data
 from src.data_adapter import load_sea_level_data
-from src.data_analysis import add_trendline, apply_mode, get_summary_stats
+from src.data_analysis import apply_mode, add_trendline, get_summary_stats, get_trend_per_year
 from src.sea_level_client import get_available_stations
 
 SEA_LEVEL_METRICS = {
     "sea_level_m": "Mean Sea Level (m)",
     "highest_m": "Highest Water Level (m)",
-    "lowest_m": "Lowest Water Level (m)",
+    "lowest_m": "Lowest Water Level (m)"
 }
 
 CLIMATE_METRICS = {
     "T2M": "Temperature at 2m (°C)",
     "PRECTOTCORR": "Precipitation (mm/day)",
     "RH2M": "Relative Humidity (%)",
-    "PS": "Surface Pressure (kPa)",
+    "PS": "Surface Pressure (kPa)"
+}
+
+SEA_LEVEL_UNITS = {
+    "sea_level_m": "m",
+    "highest_m": "m",
+    "lowest_m": "m"
+}
+
+CLIMATE_UNITS = {
+    "T2M": "°C",
+    "PRECTOTCORR": "mm/day",
+    "RH2M": "%",
+    "PS": "kPa"
 }
 
 
@@ -67,6 +80,7 @@ class PlotWindow:
         metric: str,
         metric_label: str,
         station_name: str,
+        trend_label: str | None = None
     ) -> None:
         """Redraw the chart with new data."""
         self.ax.clear()
@@ -97,7 +111,7 @@ class PlotWindow:
                     linewidth=1.5,
                     linestyle="--",
                     color="#d62728",
-                    label="Trendline",
+                    label=trend_label if trend_label else "Trendline"
                 )
                 self.ax.legend()
 
@@ -136,7 +150,7 @@ class DatasetTab(ttk.Frame):
     """
 
     metrics: dict[str, str] = {}
-    unit: str = ""
+    units: dict[str, str] = {}
 
     def __init__(self, parent, controller) -> None:
         super().__init__(parent)
@@ -263,6 +277,28 @@ class DatasetTab(ttk.Frame):
             raise ValueError(f"{label} out of range")
         return year
 
+    def _get_metric_unit(self, metric: str) -> str:
+        return self.units.get(metric, "")
+
+    def _convert_trend_for_mode(self, trend_per_year: float) -> float:
+        mode = self.mode_var.get()
+
+        if mode == "monthly":
+            return trend_per_year / 12
+        if mode == "decade":
+            return trend_per_year * 10
+        return trend_per_year
+
+    def _get_trend_unit_label(self, metric: str) -> str:
+        unit = self._get_metric_unit(metric)
+        mode = self.mode_var.get()
+
+        if mode == "monthly":
+            return f"{unit}/month" if unit else "per month"
+        if mode == "decade":
+            return f"{unit}/decade" if unit else "per decade"
+        return f"{unit}/year" if unit else "per year"
+
     # -- Event handlers ------------------------------------------------------
 
     def _on_load_data(self) -> None:
@@ -291,6 +327,7 @@ class DatasetTab(ttk.Frame):
         try:
             df = self.loader(station_name, start_year, end_year)
             df = apply_mode(df, metric, mode)
+            
             if show_trendline:
                 df = add_trendline(df, metric)
         except Exception as exc:
@@ -318,6 +355,15 @@ class DatasetTab(ttk.Frame):
         metric_label = self.metrics.get(metric, metric)
         station_name = self.station_var.get()
 
+        trend_label = None
+        
+        if self.trend_var.get():
+            trend_per_year = get_trend_per_year(self.current_df, metric)
+            if trend_per_year is not None:
+                trend_value = self._convert_trend_for_mode(trend_per_year)
+                trend_unit = self._get_trend_unit_label(metric)
+                trend_label = f"Trend: {trend_value:+.4f} {trend_unit}"
+
         plot_window = self.controller.get_plot_window()
         plot_window.update_plot(self.current_df, metric, metric_label, station_name)
         plot_window.bring_to_front()
@@ -329,7 +375,9 @@ class DatasetTab(ttk.Frame):
         metric = self._selected_metric_key()
         metric_label = self.metrics.get(metric, metric)
         stats = get_summary_stats(df, metric)
-        unit = f" {self.unit}" if self.unit else ""
+        
+        raw_unit = self._get_metric_unit(metric)
+        unit = f" {raw_unit}" if raw_unit else ""
 
         lines = [
             f"Station:      {station_name}",
@@ -339,7 +387,7 @@ class DatasetTab(ttk.Frame):
             f"Rows loaded:  {stats['rows_loaded']}",
             "",
         ]
-
+        
         if stats["average"] is None:
             lines.append("No valid values for this metric.")
         else:
@@ -350,6 +398,12 @@ class DatasetTab(ttk.Frame):
                 f"Std Dev:      {stats['std_dev']:.4f}{unit}",
             ])
 
+        trend_per_year = get_trend_per_year(df, metric)
+        if trend_per_year is not None:
+            trend_value = self._convert_trend_for_mode(trend_per_year)
+            trend_unit = self._get_trend_unit_label(metric)
+            lines.append(f"Trend:       {trend_value:+.4f} {trend_unit}")
+            
         self._set_summary("\n".join(lines))
 
     def _set_summary(self, text: str) -> None:
@@ -365,7 +419,7 @@ class DatasetTab(ttk.Frame):
 
 class SeaLevelTab(DatasetTab):
     metrics = SEA_LEVEL_METRICS
-    unit = "m"
+    units = SEA_LEVEL_UNITS
 
     def loader(self, station_name, start_year, end_year):
         return load_sea_level_data(
@@ -377,7 +431,7 @@ class SeaLevelTab(DatasetTab):
 
 class ClimateTab(DatasetTab):
     metrics = CLIMATE_METRICS
-    unit = ""
+    units = CLIMATE_UNITS
 
     def loader(self, station_name, start_year, end_year):
         return load_climate_data(
