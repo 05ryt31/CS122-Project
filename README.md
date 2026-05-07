@@ -13,7 +13,7 @@ This project is a Python-based application designed to collect, analyze, and vis
 ---
 
 ## Project Outline / Plan:
-1. Retrieve sea level and climate data from public APIs (e.g., NASA API)
+1. Retrieve sea level and climate data from NASA API
 2. Store the data locally in structured formats (CSV/JSON)
 3. Clean and preprocess the data using Python
 4. Analyze trends such as average sea level rise over time
@@ -35,8 +35,8 @@ The application will include:
 ---
 
 ## Data Collection and Storage Plan (Author #1: Ryuto Kawabata)
-1. The program will use public APIs (such as NASA API) to retrieve data.
-2. Retrieved data will be stored locally in structured formats such as CSV or JSON files.
+1. The program uses NASA API to retrieve data.
+2. Retrieved data wil be stored locally in structured formats, like CSV and JSON files.
 3. The system will allow updating stored data when new API calls are made.
 4. Basic error handling will be implemented for failed API requests.
 
