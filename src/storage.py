@@ -9,11 +9,28 @@ All paths default to the project's data/ directory (see config.py).
 """
 
 import json
+import re
 from pathlib import Path
 
 import pandas as pd
 
 from src.config import RAW_DATA_DIR, PROCESSED_DATA_DIR
+
+
+def slugify_station_name(station_name: str) -> str:
+    """Make a station name safe for use in a filename.
+
+    Replaces runs of non-alphanumeric characters with a single underscore
+    and trims leading/trailing underscores.
+
+    Examples
+    --------
+    >>> slugify_station_name("The Battery, NY")
+    'The_Battery_NY'
+    >>> slugify_station_name("San Francisco, CA")
+    'San_Francisco_CA'
+    """
+    return re.sub(r"[^A-Za-z0-9]+", "_", station_name).strip("_")
 
 
 def save_raw_json(data: dict, filename: str = "climate_raw.json") -> Path:

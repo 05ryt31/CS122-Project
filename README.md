@@ -27,7 +27,7 @@ The interface is built using Python (Tkinter).
 
 The application will include:
 - A main window with two tabs (Sea Level and Climate), each with its own metric and station controls
-- A shared secondary window for displaying graphs and statistics
+- An embedded plot panel and summary statistics that update when data is loaded
 - Buttons to fetch and update data
 - Input fields for filtering data (e.g., date range)
 - Dropdown menu for user to select a station/location from a preset list
@@ -56,4 +56,4 @@ The application will include:
 - Requests (API communication)
 - Pandas & NumPy (data processing)
 - Matplotlib (visualization)
-- Tkinter (user interface)
+- Tkinter + ttkbootstrap (user interface)

@@ -1,7 +1,9 @@
 """
-Tkinter frontend for the NASA Climate Data Dashboard.
+ttkbootstrap-themed dashboard for the NASA Climate Data project.
 
-Two-tab interface (Sea Level / Climate) plus a shared plot window.
+Two-pane layout:
+  - Left: notebook (Sea Level / Climate tabs) with controls + summary.
+  - Right: embedded matplotlib plot.
 
 Usage
 -----
@@ -9,9 +11,12 @@ Usage
 """
 
 import tkinter as tk
-from tkinter import ttk
+
+import ttkbootstrap as ttk
+from ttkbootstrap.style import ThemeDefinition
 
 import pandas as pd
+import matplotlib
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 
@@ -20,59 +25,109 @@ from src.data_adapter import load_sea_level_data
 from src.data_analysis import apply_mode, add_trendline, get_summary_stats, get_trend_per_year
 from src.sea_level_client import get_available_stations
 
+
+# ---------------------------------------------------------------------------
+# Palette + theme
+# ---------------------------------------------------------------------------
+
+NASA_BLUE = "#0B3D91"
+NASA_RED = "#FC3D21"
+SURFACE = "#F4F6F8"
+TEXT = "#1A1A1A"
+MUTED = "#6B7280"
+GRID = "#E5E7EB"
+WHITE = "#FFFFFF"
+
+NASA_THEME = ThemeDefinition(
+    name="nasa",
+    themetype="light",
+    colors={
+        "primary": NASA_BLUE,
+        "secondary": MUTED,
+        "success": "#198754",
+        "info": "#3B82F6",
+        "warning": "#F59E0B",
+        "danger": NASA_RED,
+        "light": SURFACE,
+        "dark": TEXT,
+        "bg": WHITE,
+        "fg": TEXT,
+        "selectbg": NASA_BLUE,
+        "selectfg": WHITE,
+        "border": GRID,
+        "inputfg": TEXT,
+        "inputbg": WHITE,
+        "active": SURFACE,
+    },
+)
+
+matplotlib.rcParams.update({
+    "font.family": "sans-serif",
+    "font.sans-serif": ["Helvetica", "Arial", "DejaVu Sans"],
+    "axes.edgecolor": MUTED,
+    "axes.labelcolor": TEXT,
+    "axes.titleweight": "bold",
+    "axes.titlesize": 12,
+    "xtick.color": MUTED,
+    "ytick.color": MUTED,
+    "grid.color": GRID,
+    "grid.linewidth": 0.6,
+    "axes.grid": True,
+    "axes.spines.top": False,
+    "axes.spines.right": False,
+})
+
 SEA_LEVEL_METRICS = {
     "sea_level_m": "Mean Sea Level (m)",
     "highest_m": "Highest Water Level (m)",
-    "lowest_m": "Lowest Water Level (m)"
+    "lowest_m": "Lowest Water Level (m)",
 }
 
 CLIMATE_METRICS = {
     "T2M": "Temperature at 2m (°C)",
     "PRECTOTCORR": "Precipitation (mm/day)",
     "RH2M": "Relative Humidity (%)",
-    "PS": "Surface Pressure (kPa)"
+    "PS": "Surface Pressure (kPa)",
 }
 
-SEA_LEVEL_UNITS = {
-    "sea_level_m": "m",
-    "highest_m": "m",
-    "lowest_m": "m"
-}
+SEA_LEVEL_UNITS = {"sea_level_m": "m", "highest_m": "m", "lowest_m": "m"}
 
-CLIMATE_UNITS = {
-    "T2M": "°C",
-    "PRECTOTCORR": "mm/day",
-    "RH2M": "%",
-    "PS": "kPa"
-}
+CLIMATE_UNITS = {"T2M": "°C", "PRECTOTCORR": "mm/day", "RH2M": "%", "PS": "kPa"}
 
 
 # ---------------------------------------------------------------------------
-# Plot window (shared across tabs)
+# Plot panel (embedded)
 # ---------------------------------------------------------------------------
 
-class PlotWindow:
-    """A Toplevel window that displays a matplotlib chart."""
+class PlotPanel(ttk.Frame):
+    """Matplotlib figure embedded in the right pane."""
 
-    def __init__(self, parent: tk.Tk) -> None:
-        self.top = tk.Toplevel(parent)
-        self.top.title("Data Plot")
-        self.top.geometry("800x550")
-        self.top.minsize(600, 400)
+    def __init__(self, parent) -> None:
+        super().__init__(parent, padding=12)
 
-        self.header_var = tk.StringVar(value="No data loaded")
-        header_label = ttk.Label(
-            self.top,
-            textvariable=self.header_var,
-            font=("Helvetica", 13, "bold"),
-            anchor="center",
-        )
-        header_label.pack(pady=(10, 0), fill="x")
-
-        self.figure = Figure(figsize=(7, 4), dpi=100)
+        self.figure = Figure(figsize=(7, 4.4), dpi=100, facecolor=WHITE)
         self.ax = self.figure.add_subplot(111)
-        self.canvas = FigureCanvasTkAgg(self.figure, master=self.top)
-        self.canvas.get_tk_widget().pack(fill="both", expand=True, padx=10, pady=10)
+        self.canvas = FigureCanvasTkAgg(self.figure, master=self)
+        self.canvas.get_tk_widget().pack(fill="both", expand=True)
+
+        self._draw_placeholder()
+
+    def _draw_placeholder(self) -> None:
+        self.ax.clear()
+        self.ax.text(
+            0.5, 0.5,
+            "Load data to see chart",
+            ha="center", va="center",
+            fontsize=14, color=MUTED,
+            transform=self.ax.transAxes,
+        )
+        self.ax.set_xticks([])
+        self.ax.set_yticks([])
+        for spine in self.ax.spines.values():
+            spine.set_visible(False)
+        self.ax.grid(False)
+        self.figure.tight_layout()
+        self.canvas.draw()
 
     def update_plot(
         self,
@@ -80,40 +135,34 @@ class PlotWindow:
         metric: str,
         metric_label: str,
         station_name: str,
-        trend_label: str | None = None
+        trend_label: str | None = None,
     ) -> None:
-        """Redraw the chart with new data."""
         self.ax.clear()
-
-        self.header_var.set(f"{station_name}  —  {metric_label}")
+        self.ax.grid(True)
+        self.ax.spines["left"].set_visible(True)
+        self.ax.spines["bottom"].set_visible(True)
 
         plot_df = df.dropna(subset=[metric])
         if plot_df.empty:
             self.ax.text(
                 0.5, 0.5,
                 "No data available for this selection.",
-                ha="center", va="center", fontsize=12,
+                ha="center", va="center", fontsize=12, color=MUTED,
                 transform=self.ax.transAxes,
             )
         else:
             self.ax.plot(
-                plot_df["date"],
-                plot_df[metric],
-                linewidth=1.2,
-                color="#1f77b4",
-                label=metric_label,
+                plot_df["date"], plot_df[metric],
+                linewidth=1.6, color=NASA_BLUE, label=metric_label,
             )
 
             if "trendline" in plot_df.columns and plot_df["trendline"].notna().any():
                 self.ax.plot(
-                    plot_df["date"],
-                    plot_df["trendline"],
-                    linewidth=1.5,
-                    linestyle="--",
-                    color="#d62728",
-                    label=trend_label if trend_label else "Trendline"
+                    plot_df["date"], plot_df["trendline"],
+                    linewidth=1.6, linestyle="--", color=NASA_RED,
+                    label=trend_label or "Trendline",
                 )
-                self.ax.legend()
+                self.ax.legend(frameon=False, loc="best")
 
             tick_step = max(1, len(plot_df) // 10)
             self.ax.set_xticks(plot_df["date"].values[::tick_step])
@@ -121,19 +170,9 @@ class PlotWindow:
 
         self.ax.set_xlabel("Date")
         self.ax.set_ylabel(metric_label)
-        self.ax.set_title(f"{metric_label} over Time")
+        self.ax.set_title(f"{station_name}  —  {metric_label}", color=TEXT, pad=12)
         self.figure.tight_layout()
         self.canvas.draw()
-
-    def bring_to_front(self) -> None:
-        self.top.lift()
-        self.top.focus_force()
-
-    def is_alive(self) -> bool:
-        try:
-            return self.top.winfo_exists()
-        except tk.TclError:
-            return False
 
 
 # ---------------------------------------------------------------------------
@@ -141,19 +180,13 @@ class PlotWindow:
 # ---------------------------------------------------------------------------
 
 class DatasetTab(ttk.Frame):
-    """Shared widgets and behavior for one dataset tab.
-
-    Subclasses provide:
-      - ``metrics``: dict mapping column key -> display label.
-      - ``loader(station_name, start_year, end_year)``: fetches a DataFrame.
-      - ``unit``: string appended to summary stats (e.g. "m" or "").
-    """
+    """Shared widgets and behavior for one dataset tab."""
 
     metrics: dict[str, str] = {}
     units: dict[str, str] = {}
 
     def __init__(self, parent, controller) -> None:
-        super().__init__(parent)
+        super().__init__(parent, padding=14)
         self.controller = controller
         self.stations = get_available_stations()
         self.current_df: pd.DataFrame | None = None
@@ -165,98 +198,117 @@ class DatasetTab(ttk.Frame):
     # -- UI ------------------------------------------------------------------
 
     def _build_ui(self) -> None:
-        pad = {"padx": 14, "pady": 4}
+        label_font = ("Helvetica", 10, "bold")
 
-        controls = ttk.LabelFrame(self, text="Settings", padding=10)
-        controls.pack(fill="x", **pad)
+        controls = ttk.Labelframe(
+            self, text="  Settings  ", padding=14, bootstyle="primary",
+        )
+        controls.pack(fill="x", pady=(0, 14))
+        controls.columnconfigure(1, weight=1)
 
-        ttk.Label(controls, text="Station:").grid(row=0, column=0, sticky="w", pady=4)
+        ttk.Label(controls, text="Station", font=label_font).grid(
+            row=0, column=0, sticky="w", pady=8, padx=(0, 12),
+        )
         self.station_var = tk.StringVar()
         self.station_combo = ttk.Combobox(
             controls,
             textvariable=self.station_var,
             values=list(self.stations.keys()),
             state="readonly",
-            width=28,
+            bootstyle="primary",
         )
-        self.station_combo.grid(row=0, column=1, columnspan=2, sticky="w", pady=4)
+        self.station_combo.grid(row=0, column=1, sticky="ew", pady=8)
         self.station_combo.current(0)
 
-        ttk.Label(controls, text="Metric:").grid(row=1, column=0, sticky="w", pady=4)
+        ttk.Label(controls, text="Metric", font=label_font).grid(
+            row=1, column=0, sticky="w", pady=8, padx=(0, 12),
+        )
         self.metric_var = tk.StringVar()
         self._metric_keys = list(self.metrics.keys())
-        self._metric_display = [
-            f"{key}  —  {label}" for key, label in self.metrics.items()
-        ]
+        self._metric_display = [f"{key}  —  {label}" for key, label in self.metrics.items()]
         self.metric_combo = ttk.Combobox(
             controls,
             textvariable=self.metric_var,
             values=self._metric_display,
             state="readonly",
-            width=34,
+            bootstyle="primary",
         )
-        self.metric_combo.grid(row=1, column=1, columnspan=2, sticky="w", pady=4)
+        self.metric_combo.grid(row=1, column=1, sticky="ew", pady=8)
         self.metric_combo.current(0)
 
-        ttk.Label(controls, text="Start Year:").grid(row=2, column=0, sticky="w", pady=4)
+        ttk.Label(controls, text="Start Year", font=label_font).grid(
+            row=2, column=0, sticky="w", pady=8, padx=(0, 12),
+        )
         self.start_year_var = tk.StringVar(value="2000")
-        ttk.Entry(controls, textvariable=self.start_year_var, width=8).grid(
-            row=2, column=1, sticky="w", pady=4,
-        )
+        ttk.Entry(
+            controls, textvariable=self.start_year_var, bootstyle="primary",
+        ).grid(row=2, column=1, sticky="ew", pady=8)
 
-        ttk.Label(controls, text="End Year:").grid(row=3, column=0, sticky="w", pady=4)
+        ttk.Label(controls, text="End Year", font=label_font).grid(
+            row=3, column=0, sticky="w", pady=8, padx=(0, 12),
+        )
         self.end_year_var = tk.StringVar(value="2024")
-        ttk.Entry(controls, textvariable=self.end_year_var, width=8).grid(
-            row=3, column=1, sticky="w", pady=4,
-        )
+        ttk.Entry(
+            controls, textvariable=self.end_year_var, bootstyle="primary",
+        ).grid(row=3, column=1, sticky="ew", pady=8)
 
-        ttk.Label(controls, text="Data:").grid(row=4, column=0, sticky="w", pady=4)
+        ttk.Label(controls, text="Aggregation", font=label_font).grid(
+            row=4, column=0, sticky="w", pady=8, padx=(0, 12),
+        )
         self.mode_var = tk.StringVar(value="monthly")
         ttk.Combobox(
             controls,
             textvariable=self.mode_var,
             values=["monthly", "yearly", "decade"],
             state="readonly",
-            width=16,
-        ).grid(row=4, column=1, sticky="w", pady=4)
+            bootstyle="primary",
+        ).grid(row=4, column=1, sticky="ew", pady=8)
 
         self.trend_var = tk.BooleanVar(value=False)
         ttk.Checkbutton(
             controls,
-            text="show trendline",
+            text="Show trendline",
             variable=self.trend_var,
-        ).grid(row=4, column=3, sticky="w", pady=4)
+            bootstyle="primary-round-toggle",
+        ).grid(row=5, column=0, columnspan=2, sticky="w", pady=(12, 4))
 
-        btn_frame = ttk.Frame(self)
-        btn_frame.pack(fill="x", **pad)
-        ttk.Button(btn_frame, text="Load Data", command=self._on_load_data).pack(
-            side="left", padx=(0, 8),
+        self.load_btn = ttk.Button(
+            self,
+            text="Load Data",
+            command=self._on_load_data,
+            bootstyle="primary",
+            padding=(10, 12),
         )
-        ttk.Button(btn_frame, text="Show Plot", command=self._on_show_plot).pack(
-            side="left",
-        )
+        self.load_btn.pack(fill="x", pady=(0, 8))
 
-        self.status_var = tk.StringVar(value="Select a station and click Load Data.")
-        ttk.Label(self, textvariable=self.status_var, foreground="gray").pack(
-            fill="x", **pad,
+        self.refresh_btn = ttk.Button(
+            self,
+            text="Update Plot",
+            command=self._on_show_plot,
+            bootstyle="info-outline",
+            padding=(10, 10),
         )
+        self.refresh_btn.pack(fill="x")
 
-        summary_frame = ttk.LabelFrame(self, text="Data Summary", padding=6)
-        summary_frame.pack(fill="both", expand=True, **pad)
+        summary_frame = ttk.Labelframe(
+            self, text="  Data Summary  ", padding=10, bootstyle="secondary",
+        )
+        summary_frame.pack(fill="both", expand=True, pady=(14, 0))
 
         self.summary_text = tk.Text(
             summary_frame,
-            height=14,
+            height=10,
             wrap="word",
-            font=("Courier", 11),
+            font=("Menlo", 10),
+            relief="flat",
+            background=SURFACE,
+            foreground=TEXT,
             state="disabled",
+            padx=10,
+            pady=8,
         )
-        scrollbar = ttk.Scrollbar(
-            summary_frame, orient="vertical", command=self.summary_text.yview,
-        )
-        self.summary_text.configure(yscrollcommand=scrollbar.set)
-        self.summary_text.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
+        self.summary_text.pack(fill="both", expand=True)
+        self._set_summary("Load data to see summary statistics.")
 
     # -- Helpers -------------------------------------------------------------
 
@@ -270,10 +322,12 @@ class DatasetTab(ttk.Frame):
         try:
             year = int(stripped)
         except ValueError:
-            self.status_var.set(f"Error: {label} must be a number.")
+            self.controller.set_status(f"{label} must be a number.", level="danger")
             raise
         if year < 1900 or year > 2100:
-            self.status_var.set(f"Error: {label} must be between 1900 and 2100.")
+            self.controller.set_status(
+                f"{label} must be between 1900 and 2100.", level="danger",
+            )
             raise ValueError(f"{label} out of range")
         return year
 
@@ -282,7 +336,6 @@ class DatasetTab(ttk.Frame):
 
     def _convert_trend_for_mode(self, trend_per_year: float) -> float:
         mode = self.mode_var.get()
-
         if mode == "monthly":
             return trend_per_year / 12
         if mode == "decade":
@@ -292,19 +345,28 @@ class DatasetTab(ttk.Frame):
     def _get_trend_unit_label(self, metric: str) -> str:
         unit = self._get_metric_unit(metric)
         mode = self.mode_var.get()
-
         if mode == "monthly":
             return f"{unit}/month" if unit else "per month"
         if mode == "decade":
             return f"{unit}/decade" if unit else "per decade"
         return f"{unit}/year" if unit else "per year"
 
+    def _build_trend_label(self, metric: str) -> str | None:
+        if not self.trend_var.get() or self.current_df is None:
+            return None
+        trend_per_year = get_trend_per_year(self.current_df, metric)
+        if trend_per_year is None:
+            return None
+        trend_value = self._convert_trend_for_mode(trend_per_year)
+        trend_unit = self._get_trend_unit_label(metric)
+        return f"Trend: {trend_value:+.4f} {trend_unit}"
+
     # -- Event handlers ------------------------------------------------------
 
     def _on_load_data(self) -> None:
         station_name = self.station_var.get()
         if not station_name:
-            self.status_var.set("Error: Please select a station.")
+            self.controller.set_status("Please select a station.", level="warning")
             return
 
         try:
@@ -314,60 +376,65 @@ class DatasetTab(ttk.Frame):
             return
 
         if start_year and end_year and start_year > end_year:
-            self.status_var.set("Error: Start Year must be <= End Year.")
+            self.controller.set_status(
+                "Start Year must be <= End Year.", level="danger",
+            )
             return
 
         metric = self._selected_metric_key()
         mode = self.mode_var.get()
         show_trendline = self.trend_var.get()
 
-        self.status_var.set(f"Loading data for {station_name}...")
+        self.controller.set_status(f"Loading data for {station_name}…", level="info")
+        self.load_btn.configure(text="Loading…", state="disabled")
         self.update_idletasks()
 
         try:
             df = self.loader(station_name, start_year, end_year)
             df = apply_mode(df, metric, mode)
-            
             if show_trendline:
                 df = add_trendline(df, metric)
         except Exception as exc:
-            self.status_var.set(f"Error: {exc}")
+            self.controller.set_status(f"Error: {exc}", level="danger")
             self.current_df = None
             self._set_summary("Failed to load data. Check your connection.")
             return
+        finally:
+            self.load_btn.configure(text="Load Data", state="normal")
 
         self.current_df = df
 
         if df.empty:
-            self.status_var.set("No data found for the selected year range.")
+            self.controller.set_status(
+                "No data found for the selected year range.", level="warning",
+            )
             self._set_summary("No rows returned. Try a different year range.")
             return
 
-        self.status_var.set(f"Loaded {len(df)} rows for {station_name}.")
+        self.controller.set_status(
+            f"Loaded {len(df)} rows for {station_name}.", level="success",
+        )
         self._display_summary(df, station_name)
+        self._render_plot()
 
     def _on_show_plot(self) -> None:
         if self.current_df is None or self.current_df.empty:
-            self.status_var.set("Load data first before showing a plot.")
+            self.controller.set_status(
+                "Load data first before updating the plot.", level="warning",
+            )
             return
+        self._render_plot()
+        self.controller.set_status("Plot updated.", level="info")
 
+    def _render_plot(self) -> None:
         metric = self._selected_metric_key()
         metric_label = self.metrics.get(metric, metric)
         station_name = self.station_var.get()
+        trend_label = self._build_trend_label(metric)
 
-        trend_label = None
-        
-        if self.trend_var.get():
-            trend_per_year = get_trend_per_year(self.current_df, metric)
-            if trend_per_year is not None:
-                trend_value = self._convert_trend_for_mode(trend_per_year)
-                trend_unit = self._get_trend_unit_label(metric)
-                trend_label = f"Trend: {trend_value:+.4f} {trend_unit}"
-
-        plot_window = self.controller.get_plot_window()
-        plot_window.update_plot(self.current_df, metric, metric_label, station_name)
-        plot_window.bring_to_front()
-        self.status_var.set("Plot updated.")
+        self.controller.plot_panel.update_plot(
+            self.current_df, metric, metric_label, station_name, trend_label,
+        )
 
     # -- Display -------------------------------------------------------------
 
@@ -375,7 +442,7 @@ class DatasetTab(ttk.Frame):
         metric = self._selected_metric_key()
         metric_label = self.metrics.get(metric, metric)
         stats = get_summary_stats(df, metric)
-        
+
         raw_unit = self._get_metric_unit(metric)
         unit = f" {raw_unit}" if raw_unit else ""
 
@@ -387,7 +454,7 @@ class DatasetTab(ttk.Frame):
             f"Rows loaded:  {stats['rows_loaded']}",
             "",
         ]
-        
+
         if stats["average"] is None:
             lines.append("No valid values for this metric.")
         else:
@@ -402,8 +469,8 @@ class DatasetTab(ttk.Frame):
         if trend_per_year is not None:
             trend_value = self._convert_trend_for_mode(trend_per_year)
             trend_unit = self._get_trend_unit_label(metric)
-            lines.append(f"Trend:       {trend_value:+.4f} {trend_unit}")
-            
+            lines.append(f"Trend:        {trend_value:+.4f} {trend_unit}")
+
         self._set_summary("\n".join(lines))
 
     def _set_summary(self, text: str) -> None:
@@ -423,9 +490,7 @@ class SeaLevelTab(DatasetTab):
 
     def loader(self, station_name, start_year, end_year):
         return load_sea_level_data(
-            station_name=station_name,
-            start_year=start_year,
-            end_year=end_year,
+            station_name=station_name, start_year=start_year, end_year=end_year,
         )
 
 
@@ -435,9 +500,7 @@ class ClimateTab(DatasetTab):
 
     def loader(self, station_name, start_year, end_year):
         return load_climate_data(
-            station_name=station_name,
-            start_year=start_year,
-            end_year=end_year,
+            station_name=station_name, start_year=start_year, end_year=end_year,
         )
 
 
@@ -446,35 +509,89 @@ class ClimateTab(DatasetTab):
 # ---------------------------------------------------------------------------
 
 class ClimateDashboardGUI:
-    """Top-level controller: owns the notebook and shared plot window."""
+    """Top-level controller: header, paned body, status bar."""
 
-    def __init__(self, root: tk.Tk) -> None:
+    def __init__(self, root: ttk.Window) -> None:
         self.root = root
         self.root.title("NASA Climate Data Dashboard")
-        self.root.geometry("560x680")
-        self.root.minsize(500, 600)
+        self.root.geometry("1100x720")
+        self.root.minsize(960, 620)
 
-        self.plot_window: PlotWindow | None = None
+        self._build_header()
+        self._build_body()
+        self._build_status_bar()
 
-        title = ttk.Label(
-            root,
+    def _build_header(self) -> None:
+        header = tk.Frame(self.root, bg=NASA_BLUE, height=60)
+        header.pack(fill="x", side="top")
+        header.pack_propagate(False)
+
+        title = tk.Label(
+            header,
             text="NASA Climate Data Dashboard",
-            font=("Helvetica", 16, "bold"),
+            font=("Helvetica", 17, "bold"),
+            bg=NASA_BLUE,
+            fg="white",
         )
-        title.pack(pady=(14, 6))
+        title.pack(side="left", padx=24, pady=14)
 
-        notebook = ttk.Notebook(root)
-        notebook.pack(fill="both", expand=True, padx=10, pady=10)
+        subtitle = tk.Label(
+            header,
+            text="Sea level & climate trends",
+            font=("Helvetica", 11),
+            bg=NASA_BLUE,
+            fg="#C7D5EE",
+        )
+        subtitle.pack(side="left", padx=(0, 24), pady=18)
+
+    def _build_body(self) -> None:
+        body = ttk.Frame(self.root, padding=(14, 14, 14, 8))
+        body.pack(fill="both", expand=True)
+
+        paned = ttk.Panedwindow(body, orient="horizontal")
+        paned.pack(fill="both", expand=True)
+
+        left = ttk.Frame(paned, padding=(0, 0, 8, 0))
+        notebook = ttk.Notebook(left, bootstyle="primary")
+        notebook.pack(fill="both", expand=True)
 
         self.sea_level_tab = SeaLevelTab(notebook, self)
         self.climate_tab = ClimateTab(notebook, self)
-        notebook.add(self.sea_level_tab, text="Sea Level")
-        notebook.add(self.climate_tab, text="Climate")
+        notebook.add(self.sea_level_tab, text="  Sea Level  ")
+        notebook.add(self.climate_tab, text="  Climate  ")
 
-    def get_plot_window(self) -> PlotWindow:
-        if self.plot_window is None or not self.plot_window.is_alive():
-            self.plot_window = PlotWindow(self.root)
-        return self.plot_window
+        paned.add(left, weight=2)
+
+        right = ttk.Frame(paned, padding=(8, 0, 0, 0))
+        self.plot_panel = PlotPanel(right)
+        self.plot_panel.pack(fill="both", expand=True)
+
+        paned.add(right, weight=3)
+
+    def _build_status_bar(self) -> None:
+        bar = ttk.Frame(self.root, padding=(14, 6))
+        bar.pack(fill="x", side="bottom")
+
+        self.status_var = tk.StringVar(
+            value="Ready. Select a station and click Load Data.",
+        )
+        self.status_label = ttk.Label(
+            bar,
+            textvariable=self.status_var,
+            bootstyle="secondary",
+            font=("Helvetica", 10),
+        )
+        self.status_label.pack(side="left")
+
+    def set_status(self, text: str, level: str = "info") -> None:
+        bootstyle_map = {
+            "info": "secondary",
+            "success": "success",
+            "warning": "warning",
+            "danger": "danger",
+        }
+        self.status_var.set(text)
+        self.status_label.configure(bootstyle=bootstyle_map.get(level, "secondary"))
 
 
 # ---------------------------------------------------------------------------
@@ -483,7 +600,9 @@ class ClimateDashboardGUI:
 
 def main() -> None:
     """Launch the dashboard GUI."""
-    root = tk.Tk()
+    root = ttk.Window(themename="cosmo")
+    root.style.register_theme(NASA_THEME)
+    root.style.theme_use("nasa")
     ClimateDashboardGUI(root)
     root.mainloop()
 
