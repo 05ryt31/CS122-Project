@@ -9,7 +9,7 @@ import pandas as pd
 
 from src.api_client import fetch_climate_data
 from src.sea_level_client import get_available_stations
-from src.storage import build_dataframe
+from src.storage import build_dataframe, save_csv, slugify_station_name
 
 
 def load_climate_data(
@@ -83,4 +83,9 @@ def load_climate_data(
         "station_id", "station_name",
     ]
     available = [c for c in column_order if c in df.columns]
-    return df[available].reset_index(drop=True)
+    df = df[available].reset_index(drop=True)
+
+    slug = slugify_station_name(station_name)
+    save_csv(df, filename=f"climate_{slug}_{station['id']}.csv")
+
+    return df

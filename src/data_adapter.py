@@ -9,6 +9,7 @@ import pandas as pd
 
 from src.data_normalizer import normalize_sea_level
 from src.sea_level_client import fetch_sea_level_data, get_available_stations
+from src.storage import save_csv, slugify_station_name
 
 
 def load_sea_level_data(
@@ -57,4 +58,9 @@ def load_sea_level_data(
     if end_year is not None:
         df = df[df["year"] <= end_year]
 
-    return df.reset_index(drop=True)
+    df = df.reset_index(drop=True)
+
+    slug = slugify_station_name(station_name)
+    save_csv(df, filename=f"sea_level_{slug}_{station_id}.csv")
+
+    return df
